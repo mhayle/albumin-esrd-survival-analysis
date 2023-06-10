@@ -1,0 +1,604 @@
+---
+title: "The Association Between Serum Albumin and the Risk of Mortality in Patients with End-Stage Renal Disease"
+author: "Mustapha Ayle"
+date: "3/24/2023"
+header-includes:
+    \usepackage{makecell}
+    \usepackage{fancyhdr}
+    \pagestyle{fancy}
+    \fancyhead[RE,RO]{Mustapha Ayle}
+output: github_document
+abstract: "End-stage renal disease (ESRD) is a severe medical condition characterized by a progressive decline in kidney function. A common biomarker used to evaluate protein-energy malnutrition (PEM) and overall health is serum albumin. This study aimed to investigate the association between serum albumin levels and the risk of mortality in ESRD patients and to explore whether this association differs between patients with and without cardiovascular disease (CVD). Using data from the National Institute of Diabetes and Digestive and Kidney Diseases (NIDDK), we analyzed serum albumin measurements from 1,979 ESRD patients undergoing dialysis therapy in December 2014. We employed Cox proportional hazards models to quantify the association between baseline serum albumin and the risk of mortality, incorporating time-dependent covariates to account for changes in albumin levels over time. Our results indicate that higher serum albumin levels are significantly associated with a reduced risk of death in ESRD patients, with a stronger association when accounting for time-dependent changes in albumin levels. Furthermore, patients with a history of CVD demonstrated a higher risk of mortality, although the interaction between baseline albumin and CVD history did not significantly improve the model. Our findings support the use of serum albumin as a potential biomarker for predicting mortality in hemodialysis patients."
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+rm(list = ls())
+```
+
+```{r, include=FALSE}
+library(survival)
+library(tidyverse)
+library(tableone)
+library(knitr)
+library(naniar)
+library(Epi)
+library(multcomp)
+```
+
+# 1 Introduction
+
+Chronic kidney disease (CKD) is a common and serious medical condition that affects a large number of individuals worldwide. CKD is characterized by a progressive decline in kidney function, which can eventually lead to end-stage renal disease (ESRD) - a condition where the kidneys are no longer able to sustain life. Hemodialysis is a standard treatment for ESRD patients who are not eligible for kidney transplantation.
+
+One of the major concerns in the management of hemodialysis patients is the identification and monitoring of nutritional status. Protein-energy malnutrition (PEM) is a common problem in hemodialysis patients and has been associated with increased mortality rates. One common biomarker used to measure a patient's PEM and overall health is serum albumin. 
+
+In this paper, we analyze a study conducted to measure the change in serum albumin levels over time in patients with ESRD. We have three primary questions of interest we wish to address. First, using only the patients' baseline albumin measurements, we want to determine the association between serum albumin and the risk of mortality in patients with ESRD. We will also explore whether this association differs between patients with and without cardiovascular disease. We will then repeat the analysis treating albumin as a time-dependent factor and study the relationship between mortality and albumin as it changes over time. Answering these questions will provide valuable insights into the use of serum albumin as a potential biomarker for predicting mortality in hemodialysis patients.
+
+
+# 2 Methods
+
+## 2.1 Data Description
+
+The data analyzed here was collected from the National Institute of Diabetes and Digestive and Kidney Diseases (NIDDK). A random sample of $N=1,979$ patients were recruited to an observational study from dialysis clinics across the United States undergoing dialysis therapy during the month of December 2014. 
+
+Several data points are collected with each patients entry to the study, including age, gender, race, smoking history, BMI, cardiovascular disease history, diabetes history, subjective assessment of nutritional status, and laboratory measurements related to cardiovascular health. A detailed description of the dataset is given in Table 6 in the Appendix B. The time origin of this study is the patients' entry to the study and the time scale is days since entry. The failure event is death of the patient from ESRD. 
+
+The primary focus of this study is the relationship between serum albumin and mortality, so in addition to the initial measurement take, the patients' albumin levels were measured and recorded every 1-2 months for up to one year following the start of the study. 
+
+An important part of the dataset to identify prior to modeling are the features we believe will have an impact on mortality. In order to isolate the effect of albumin, we include in the model the variables we believe to be confounders. From the features available in Table 6, the ones that are believed to be related to both the predictors of interest (albumin) and outcome (mortality) are age, gender, race, BMI, smoking history, diabetes history, CVD history, whether they appeared undernourished, and how long they had ESRD before entering the study. In addition, we include the patients' cholesterol and post-dialysis systolic blood pressure (SBP) as precision variables, since they are known to associated with cardiovascular disease. 
+
+
+## 2.2 Statistical Methods
+
+In this analysis, we have three primary questions of interest:
+
+1. Quantify the association between baseline serum albumin and the risk of mortality.
+2. Quantify the potential difference in the association between baseline albumin and the risk of mortality comparing patients with and without a history of cardiovascular disease.
+3. Quantify the association between serum albumin as a time-dependent variable and the risk of mortality. 
+
+These question will be addressed using Cox's proportional hazards model. For question (1), we fit the model with baseline serum albumin as the main effect while adjusting for the confounders discussed in the previous section. Denoting the confounders as $Z$, the model will be
+
+$$
+\lambda(t)=\lambda_0(t)\cdot e^{\beta_1\cdot\text{alb0}_i+\vec{\beta}^TZ_i}
+$$
+
+Question (2) uses a similar model to (1), with the addition of an interaction term between baseline albumin and CVD history. The updated model for this question is
+
+$$
+\lambda(t)=\lambda_0(t)\cdot e^{\beta_1\cdot\text{alb0}_i+\beta_2\cdot\text{CVD}_i+\beta_3\cdot\text{alb0}_i\cdot\text{CVD}_i+\vec{\beta}^TZ_i}
+$$
+In question (3), we are interested in seeing how the change in albumin at each visit is associated with mortality. Since serum albumin is a marker for overall health, we would expect for the odds of mortality to increase as this value decreases. To study this we extend the model used in (2) by making albumin a time-dependent covariate and incorporating the full dataset. The final model is shown below. Here $\text{alb}_i(t)$ is the serum albumin value of the $i$th patient at time $t$. 
+
+$$
+\lambda(t)=\lambda_0(t)\cdot e^{\beta_1\cdot\text{alb}_i(t)+\beta_2\cdot\text{CVD}_i+\vec{\beta}^TZ_i}
+$$
+
+Several diagnostic tests are used to assess the appropriateness of the models. To address the proportionality assumption of the Cox models, we examine the scaled Schoenfeld residuals. The deviance residuals and delta-beta residuals are used to diagnose outliers and influential observations. All model building and analysis was done using R.
+
+
+
+
+# 3 Results
+
+## 3.1 Descriptive Statistics
+
+The first aspect of the dataset to inspect is the presence of missing data. Of the 1,979 patients in the data, 745 (37%) contain missing values. Measurements of serum triglyceride are missing in about 20% of subjects, the most of any variable. As a large portion of observations are missing triglyceride measurements, this will be excluded from the model. With this feature excluded, only 556 (28%) are missing data. Other features with missing values are smoking history, CVD history, cholesterol, and undernourishment status with 9%, 8%, 7.5% and 6% missing observations, respectively. A full breakdown of the missing data is shown in Table 7 in Appendix B.
+
+For the purpose of this analysis, we will be excluding patients with missing values. Doing so results in a sample that closely follows our initial dataset, which can be seen by comparing Table 1 with Table 8 in Appendix B. 
+
+
+```{r dataset, include=FALSE}
+
+first_data <- read.csv("usrdsData.csv")
+alb <- read.csv("LongitudinalAlbumin.csv")
+
+data <- first_data %>% left_join(alb, by="usrds.id")
+
+data <- data %>%
+    group_by(usrds.id) %>%
+    mutate(r=row_number(),
+           start=measday,
+           stop = case_when(
+               r==max(r) ~ tdeath,
+               TRUE ~ lead(measday)
+           ),
+           ideath = case_when(
+               death==1 & r==max(r) ~ 1,
+               TRUE ~ 0
+           )
+    )
+
+comp_first <- subset(first_data, select=-c(trigly)) %>% na.omit()
+comp_data <- subset(data, select=-c(trigly)) %>% na.omit()
+
+```
+
+
+Table 1 provides summary statistics of all the variables in this data stratified by if the patient was observed to die. Here we observe some big differences between the two groups. Of the 1,423 patients with complete observations in this study, 332 (23%) are observed to die with an average time to death of 195 days after entering the study. Patients who died were more likely to be older and Caucasian. Death was also more common among current smokers and diabetics. A significant number of patients that died had a history of CVD (80%) compared to those that did not die (54%). Table 9 in Appendix B shows these summary statistics further stratified by CVD history.
+
+The data contains 332 events out of the 1,423 complete observations. Since we have imbalanced data with somewhat rare events, a secondary analysis will be conducted using a nested case-control design with $M=4$ controls per case. This analysis can be seen in Appendix A. 
+
+```{r, echo=FALSE, warning=FALSE, fig.cap="Table 1"}
+
+myVars <- names(first_data)[-c(1,3)]
+catVars <- c("female","racegrp","smokegrp","hist.cvd","diabetes","undnour")
+
+# CreateTableOne(data= (first_data %>% select(-trigly) %>% na.omit()),
+#                vars=myVars, factorVars = catVars, test = FALSE, strata="death")
+
+tab1 <- print(
+    CreateTableOne(data=comp_first, vars=myVars, factorVars = catVars, test = FALSE, strata="death"),
+    exact = "stage", quote = FALSE, noSpaces = TRUE, printToggle = FALSE
+    ) %>%
+    write.csv("table_one.csv")
+
+
+tab1 <- read.csv("table_one.csv")
+names(tab1) <- c("", "No Event", "Event")
+kable(tab1, caption="Summary Statistics Stratified by Death, Complete Observations")
+
+
+```
+
+
+Another question of interest is to find the difference in the association between baseline albumin and the risk of mortality in patients with and without a history of CVD. Figure 1 shows a Kaplan-Meier plot of the time to death between these two groups. It shows that at all times, patients with a history of CVD have a higher risk of mortality.
+
+
+```{r, echo=FALSE, fig.height=4, fig.width=5, fig.align="center", fig.cap="KM Plot of Time to death by CVD"}
+
+plot(
+    survfit( Surv( tdeath, death) ~ hist.cvd, data=first_data ),
+    xlab = "Time (days) from entry to study",
+    ylab = "Survival",
+    lty=1:2, col=1:2
+)
+legend(0, 0.4, legend = c("No CVD", "CVD"), lty=1:2, col=1:2)
+
+
+```
+
+
+
+
+## 3.2 Modeling Time to Death by Baseline Serum Albumin
+
+To analyze the association between baseline serum albumin and the risk of mortality, we construct a Cox proportional hazard model adjusting for the following covariates: age, gender, race, smoking history, diabetes status, CVD history, BMI, and time with ESRD prior to entering the study. The main effect of interest in this model is baseline albumin. 
+
+Table 2 presents the hazard ratio estimates, 95% confidence intervals, standard errors, and p-values of the model specified above. From the model, we estimate that the relative risk of death is approximately 37% lower (95% CI: 20% - 51%) for a patient with a baseline albumin measurement one unit higher than another similar patient with respect to the features accounted for. This value has a corresponding p-value of 0.0001, meaning that it is significantly associated with the relative risk of death given the presence of the other predictors in the model. 
+
+Some other notable features in this model are the effects of CVD history and undernourishment. Subjects with a history of cardiovascular disease have a relative risk of death 2.15 times higher (95% CI: 1.62-2.85) than that of a patient without a history of cardiovascular disease who are similar with respect to all other controlled features. Patients' history of CVD will be examined further in the following section. Subjects who appeared undernourished to the study nurse at the time of entry have a relative risk of 2.04 times (95% CI: 1.59-2.63) that of a similar subject that appeared relatively healthy with equal values for all other features. Values for the remaining coefficients can be seen in Table 2. 
+
+
+```{r, include=FALSE}
+
+fit_base <- coxph( Surv( tdeath, death) ~ albumin.0 + age + female + factor(racegrp) +
+                       factor(smokegrp) + diabetes + hist.cvd + esrdtime + undnour + bmi +
+                       cholest + pst.sbp, 
+                   data=comp_first )
+
+summary(fit_base)
+
+```
+
+```{r, echo=FALSE}
+
+cbind(
+    summary(fit_base)$conf.int,
+    summary(fit_base)$coef[,c(3,5)]
+) %>% kable(caption="Coeffients Modeling Mortality with Baseline Albumin")
+
+```
+
+
+Figure 2 in Appendix B shows a set of diagnostic plots for this model. To ensure that we have the correct functional form for serum albumin, we examine the Martingale residual plot. The fitted line here appears centered around zero, so we maintain the identity for for albumin and conclude that the effect is linear. To assess the proportional hazards assumption, we examine the scaled Schoenfeld residuals. The plot of these residuals shows that the points are centered around zero and appear to satisfy the proportionality assumption. 
+
+There are 4 outliers found from the deviance residuals: patients 26890, 150948, 555425, and 589114. ID 26890 had a very high BMI of 47.6 and had ESRD for 5.6 years prior to entering the study. IDs 150948, 555425, and 589114 all died shortly after joining the study, with ID 150948 and 555425 dying one day later and ID 589114 two days later. When looking at the delta-beta values, Subject 565977 was found to be the only highly influential observation. This subject had the highest baseline serum albumin measurement of those observed to die and had a very late time of death. None of the outliers identified as influential because the hazard at early failure times is likely not too different since most subjects are still present in the risk set. 
+
+
+
+
+
+## 3.3 Modeling Time to Death by Baseline Serum Albumin and CVD
+
+To study the difference in the association between baseline albumin and mortality comparing patients with and without a history of CVD, we extend the proportional hazards model from the previous section by adding an interaction term for the patients' CVD history and baseline albumin. 
+
+Table 3 shows the relative risk of death associated with having a history of CVD for patients at three representative albumin levels in the dataset. For patients with a baseline albumin value of 3.5, the estimated relative risk associated with having a history of CVD is 2.14 times (95% CI: 1.56-2.93) when compared to no history of CVD. This risk appears to increase for higher albumin values. In patients with a baseline albumin of 4, the estimated risk of death associated with history of CVD is 2.64 times (95% CI: 1.76-3.94). All estimates are adjusted for age, gender, race, smoking history, diabetes, time with ESRD, BMI, cholesterol, and SBP.
+
+Conducting a likelihood ratio test comparing this model to the previous one without an interaction yields a chi-squared statistic of 2.7 on 1 degree of freedom with a p-value of 0.10. So this interaction does not provide a significant improvement to the model. The full estimated coefficients and confidence intervals of this model are shown in Table 10 in Appendix B. 
+
+
+```{r, include=FALSE}
+
+fit_int <- coxph( Surv( tdeath, death) ~ albumin.0*hist.cvd + age + female + 
+                      factor(racegrp) + factor(smokegrp) + diabetes + esrdtime + 
+                      undnour + bmi + cholest + pst.sbp, 
+                  data=comp_first )
+
+summary(fit_int)
+
+```
+
+
+```{r, echo=FALSE, fig.cap="Table 3"}
+
+alb_test <- c("1*hist.cvd + 3.5*albumin.0:hist.cvd = 0",
+              "1*hist.cvd + 3.8*albumin.0:hist.cvd = 0",
+              "1*hist.cvd + 4*albumin.0:hist.cvd = 0")
+
+int_rr <- cbind(
+    confint(glht(fit_int, linfct = alb_test))$confint[1:3,] %>% exp(),
+    summary(glht(fit_int, linfct = alb_test))$test$pvalues
+)
+
+colnames(int_rr) <- c("Estimated RR", "lower .95", "upper .95","pva1")
+rownames(int_rr) <- c("Albumin0 = 3.5", "Albumin0 = 3.8", "Albumin0 = 4.0")
+
+kable(int_rr, caption = "Estimates for the RR of Death in patients with history of CVD, modified by baseline albumin")
+    
+```
+
+
+
+Figure 3 in Appendix B shows a set of diagnostic plots for this model. These plots are very similar to the ones found in Figure 2, that were discussed in (3.2). We see from the two scaled Schoenfeld residuals plots that the proportionality assumption appears to be satisfied. From the deviance residuals, we find the same 4 observations to be outliers as in the model from (3.2). For the delta-beta values, ID 583571 was found to be influential in terms of both baseline albumin and CVD history. None of the outliers identified as influential because the hazard at early failure times is likely not too different since most subjects are still present in the risk set. 
+
+
+
+## 3.4 Serum Albumin as a Time-Dependent Covariate
+
+Given the studies focus on albumin, additional measurements were taken and recorded for each patients every 1-2 months for up to one year following the start of the study. To examine how the change in albumin at each visit is associated with mortality, we will refit the model and incorporate this new data by considering albumin as a time-dependent covariate. 
+
+Based on the model results in Table 4, we estimate that, at any given time $t$, the relative risk of death is approximately 69% lower (95% CI: 61% - 76%) for a patient with serum albumin one unit higher than another similar patient at the same time $t$. With a p-value < 0.001, this suggests that higher serum albumin levels are associated with a reduced risk of death in hemodialysis patients. 
+The relative risk of death for former smokers is approximately 0.87 times (95% CI: 0.67-1.14) that of similar patients who have never smoked. For current smokers, the relative risk is 1.51 times (95% CI: 1.11-2.08) that of similar patients who have never smoked. Patients with a history of CVD have an estimated relative risk of death of 2.15 times (95% CI: 1.63-2.85) that of another group of patients without a history of CVD. Patients who appeared undernourished during their first visit have an estimated relative risk of 1.78 times (95% CI: 1.40-2.28) that of another group of similar patients who did not appear undernourished. All estimates are adjusted for serum albumin, age, gender, race, smoking history, diabetes, time with ESRD, undernourishment, BMI, CVD history, cholesterol, and SBP. The remaining estimated relative risks of the model are presented in Table 4 below. 
+
+
+```{r, include=FALSE}
+
+fit_td <- coxph( Surv( as.numeric(start), as.numeric(stop), ideath) ~ albumin + 
+                     age + female + factor(racegrp) + factor(smokegrp) + diabetes + 
+                     hist.cvd + esrdtime + undnour + bmi  + cholest + pst.sbp, 
+                  data=comp_data )
+
+summary(fit_td)
+
+```
+
+```{r, echo=FALSE, fig.cap="Table 4"}
+
+cbind(
+    summary(fit_td)$conf.int,
+    summary(fit_td)$coef[,c(3,5)]
+) %>% kable(caption="Coeffients Modeling Mortality with Time-Dependent Albumin")
+
+```
+
+
+Comparing the results of this model to that found in (3.2), we see that many of the coefficients have very similar values, with the exception of albumin. In (3.2), the model considers only the baseline serum albumin levels. This approach assumes that the serum albumin levels remain constant for each patient throughout the study period, which may not reflect the true variability in albumin levels experienced by the patients over time. The model in this section takes into account the time-dependent nature of serum albumin and is able to better reflect the changes in albumin levels over time and capture the impact of these fluctuations on the risk of mortality. 
+
+Figure 4 in Appendix B shows a set of diagnostic plots for this model. The scaled Schoenfeld residuals for albumin against time indicate that the proportionality assumption is not violated. Examining the deviance residuals we find 21 observations with values greater than 3 that we classify as outliers. Two observations were found to be influential using delta-beta criteria. The only observation found to be both influential and an outlier is ID 320843. 
+
+
+
+# 4 Discussion
+
+This study aimed to investigate the association between serum albumin levels and the risk of mortality in patients with end-stage renal disease (ESRD) undergoing hemodialysis. The results of our analysis suggest that serum albumin is a significant predictor of mortality and that patients with higher serum albumin levels were found to have a lower risk of mortality. This relationship remained significant after adjusting for potential confounders such as age, gender, race, smoking history, diabetes, time with ESRD, undernourishment, BMI, CVD history, cholesterol, and SBP.
+
+Our analysis also explored the potential difference in the association between baseline albumin and the risk of mortality comparing patients with and without a history of CVD. Although we observed some differences in the estimated risk of death associated with CVD history for different albumin levels, the interaction between baseline albumin and CVD history was not statistically significant.
+
+When treating albumin as a time-dependent covariate, our results indicated that the association between albumin and mortality risk remained significant, and even stronger than when only considering baseline albumin measurements. This finding highlights the importance of monitoring serum albumin levels throughout the course of hemodialysis treatment, as changes in albumin levels over time might have a significant impact on patient outcomes.
+
+There were two main limitations in this analysis. First is the considerable amount of missing data and patients excluded from the analysis. This may have resulted in selection bias and affected the generalizability of our findings. Second is that the study focuses on only a single biomarker (serum albumin) to assess nutritional status and risk of mortality. Future studies could consider evaluating the impact of additional biomarkers to improve risk estimation and patient profiling.
+
+
+
+
+\newpage
+# Appendix A
+## Case-Control Study
+
+
+
+As noted in part (3.1), we will conduct a secondary analysis for the association between baseline serum albumin and the risk of mortality accounting for the imbalanced data. For this we use a nested case-control study. This design allows us to sample all cases and only sample a portion matched controls. We match the controls to cases based on baseline albumin, age, gender, race, smoking history, diabetes, CVD history, time with ESRD, undernourishment, BMI, cholesterol, and SBP to minimize selection bias and ensure the results are as valid and reliable as possible. Here we will be using $M=4$ controls per case. The nested case-control analysis is performed using a conditional logistic regression analysis. 
+
+Table 5 shows the results of the case-control design model. The odds of death is approximately 41% lower (95% CI: 22%-56%) for a patient with a baseline albumin measurement one unit higher than another similar patient. Patients with a history of CVD have 2.25 times (95% CI: 1.64-3.08) the risk of death compared to a similar patient without a history of CVD. Patients who appeared undernourished to the study nurse at the time of entry have 1.86 times (95% CI: 1.36-2.56) the risk of death compared to a similar patient that appeared relatively healthy. All estimates are adjusted for age, gender, race, smoking history, diabetes, time with ESRD, BMI, cholesterol, and SBP.
+
+Comparing to the estimates of this model to those found in (3.2), we see that the results of the two models are very similar. We also see that, across all coefficients, we have larger values for the standard errors. Note that the standard errors of our coefficients in the case-control design are larger than when we used the full sample. This reflects the loss of information due to the reduced number of controls. The confidence intervals of our estimates are also wider as a result. The relative efficiency of the full design relative to the case-control design is $M+1/M=1.25$. 
+
+
+```{r, include=FALSE}
+
+set.seed(2017193258)
+
+cc_data <- ccwc(exit=tdeath, fail=death, controls=4, data=comp_first, 
+     include=list(albumin.0, hist.cvd, age, female, racegrp, smokegrp, 
+                  diabetes, esrdtime, undnour, bmi, cholest, pst.sbp, tdeath)
+     )
+
+cc_fit <- clogit(Fail ~ albumin.0 + age + female + racegrp + smokegrp + diabetes + 
+                     hist.cvd + esrdtime + undnour + bmi + cholest + pst.sbp + strata(Set), 
+                 data=cc_data)
+
+summary(cc_fit)
+
+```
+
+```{r, echo=FALSE, fig.cap="Table 5"}
+
+cbind(
+    summary(cc_fit)$conf.int,
+    summary(cc_fit)$coef[,c(3,5)]
+) %>% kable(caption="Coeffients for Case-Control Design")
+
+```
+
+
+
+
+\newpage
+# Appendix B
+
+```{=latex}
+
+\begin{table}[h!]
+    \caption{Data Description} \label{tab:title} 
+    \centering
+    \begin{tabular}{c|c} 
+        Variable       & Description    \\
+        \hline
+        usrdsid        & unique patient identifier \\ 
+        tdeath         & \thead{end of observation time (in days; measured \\ from time of recruitment into the study)} \\ 
+        death          & indicator of whether the patient was truly observed to die \\ 
+        age            & age of the patient (in years) at the time of recruitment into the study \\ 
+        female         & indicator of whether or not the patient was female \\ 
+        racegrp        & \thead{race of the patient \\(1=Caucasian, 2=African American, 3=other)} \\ 
+        smokegrp       & \thead{smoking status of the patient measured at time of first access placement \\ (1=never smoked, 2=former smoker, 3=current smoker)} \\ 
+        hist.cvd       & indicator of whether patient has had a history of cardiovascular disease \\ 
+        diabetes       & indicator of whether the patient is diabetic (includes type I and type II) \\ 
+        esrdtime       & total time (in years) that patient had ESRD prior to entering study \\ 
+        undnour        & indicator of whether the patient appeared undernourished to the study nurse \\ 
+        bmi            & body mass index of the patient measured at time of recruitment \\
+        albumin.0      & \thead{serum albumin measured in the patient \\ at the time of recruitment (g/dL)} \\ 
+        cholest        & \thead{total serum cholesterol measured in the \\ patient at the time of recruitment (mg/dL)} \\ 
+        trigly         & \thead{serum triglycerides measured in the patient \\ at the time of recruitment (mg/dL)} \\ 
+        pst.sbp        & \thead{Post-dialysis systolic blood pressure measured at \\ the time of recruitment (mmHg)} \\ 
+        \hline
+    \end{tabular}
+\end{table}
+
+```
+
+
+```{r, echo=FALSE, fig.cap="Table X"}
+
+kable(
+    miss_var_summary(first_data),
+    caption="Distribution of Missing Data"
+)
+
+```
+
+
+```{r, echo=FALSE, fig.cap="Table X"}
+
+myVars <- names(first_data)[-c(1,3)]
+catVars <- c("female","racegrp","smokegrp","hist.cvd","diabetes","undnour")
+
+# CreateTableOne(data=first_data, vars=myVars, factorVars = catVars, test = FALSE, strata="death")
+
+tab_full <- print(
+    CreateTableOne(data=first_data, vars=myVars, factorVars = catVars, test = FALSE, strata="death"),
+    exact = "stage", quote = FALSE, noSpaces = TRUE, printToggle = FALSE
+    ) %>%
+    write.csv("table_full.csv")
+
+
+tab_full <- read.csv("table_one.csv")
+names(tab_full) <- c("", "No Event", "Event")
+kable(tab_full, caption="Summary Statistics Stratified by Death, All Observations")
+
+```
+
+
+```{r, echo=FALSE, warning=FALSE, fig.cap="Table X"}
+
+#CreateTableOne(data=first_data, vars=myVars[-6], factorVars = catVars[-4], test = FALSE, strata=c("hist.cvd","death"))
+
+
+tab_cvd <- print(
+    CreateTableOne(data=comp_first, vars=myVars[-6], factorVars = catVars[-4], test = FALSE,
+                   strata=c("hist.cvd","death")),
+    exact = "stage", quote = FALSE, noSpaces = TRUE, printToggle = FALSE
+    ) %>%
+    write.csv("table_cvd.csv")
+
+
+tab_cvd <- read.csv("table_cvd.csv")
+names(tab_cvd) <- c("", "No Event, No CVD", "No Event, CVD", "Event, No CVD", "Event, CVD")
+kable(tab_cvd, caption="Summary Statistics Stratified by Death and CVD")
+
+```
+
+
+```{r, echo=FALSE, fig.height=8, fig.cap="Baseline Model Diagnostics"}
+
+
+par(mfrow=c(2,2))
+
+# linearity of predictor
+
+base_mres <- residuals(fit_base, type="martingale")
+base_lmfit <- lm(albumin.0 ~ age + female + factor(racegrp) + factor(smokegrp) + 
+                     diabetes + hist.cvd + esrdtime + undnour + bmi + cholest + pst.sbp,
+                 data=comp_first)
+base_ralb <- base_lmfit$resid
+base_ord <- order(base_ralb)
+base_mres <- base_mres[base_ord]
+plot(base_ralb, base_mres,
+     ylab="martingale residuals, serum albumin",
+     xlab="LM residual",
+     main="Martingale residuals")
+lines(smooth.spline(base_ralb, base_mres, df=6), col="red", lwd=2)
+lines(base_ralb, fitted(lm(base_mres~base_ralb)), col="blue", lwd=2)
+
+
+# outliers
+
+base_dres <- residuals(fit_base, type="deviance")
+base_lp <- predict(fit_base, type="lp")
+plot(base_lp, base_dres, 
+     xlab = "linear predictor", 
+     ylab="deviance residuals", 
+     main="Deviance residuals")
+abline(h=c(-3, 3), col="red")
+
+
+# influential points
+
+base_dfbetas <- residuals(fit_base, type="dfbeta")
+plot(1:nrow(comp_first), base_dfbetas[,1],
+     xlab="index", 
+     ylab="delta-beta",
+     main="Delta-beta values, baseline albumin")
+
+
+# proportionality
+
+base_sres <- residuals(fit_base, type="scaledsch")
+colnames(base_sres) <- names(fit_base$coefficients)
+base_time <- as.numeric(rownames(base_sres))
+plot(base_time, base_sres[,1],
+     xlab="time", 
+     ylab="schoenfeld residuals",
+     main="Schoenfeld residuals, baseline albumin")
+lines(smooth.spline(base_time, base_sres[,1]), col="red", lwd=2)
+lines(base_time, fitted(lm(base_sres[,1]~base_time)), col="blue", lwd=2)
+
+```
+
+
+
+```{r, echo=FALSE, fig.cap="Table X"}
+
+cbind(
+    summary(fit_int)$conf.int,
+    summary(fit_int)$coef[,c(3,5)]
+) %>% kable(caption="Coeffients Modeling Mortality With Baseline Albumin and CVD Interaction")
+
+```
+
+
+```{r, echo=FALSE, fig.height=8, fig.cap="Interaction Model Diagnostics"}
+
+
+par(mfrow=c(3,2))
+
+# linearity of predictor
+
+int_mres <- residuals(fit_int, type="martingale")
+int_lmfit <- lm(albumin.0 ~ age + female + factor(racegrp) + factor(smokegrp) + 
+                     diabetes + hist.cvd + esrdtime + undnour + bmi + cholest + pst.sbp,
+                 data=comp_first)
+int_ralb <- int_lmfit$resid
+int_ord <- order(int_ralb)
+int_mres <- int_mres[int_ord]
+plot(int_ralb, int_mres,
+     ylab="martingale residuals for serum albumin",
+     xlab="LM residual",
+     main="Martingale residuals")
+lines(smooth.spline(int_ralb, int_mres, df=6), col="red", lwd=2)
+lines(int_ralb, fitted(lm(int_mres~int_ralb)), col="blue", lwd=2)
+
+
+# outliers
+
+int_dres <- residuals(fit_int, type="deviance")
+int_lp <- predict(fit_int, type="lp")
+plot(int_lp, int_dres, 
+     xlab = "linear predictor", 
+     ylab="deviance residuals", 
+     main="Deviance residuals")
+abline(h=c(-3, 3), col="red")
+
+
+# influential points
+
+int_dfbetas <- residuals(fit_int, type="dfbeta")
+plot(1:nrow(comp_first), int_dfbetas[,1],
+     xlab="index", 
+     ylab="delta-beta",
+     main="Delta-beta values, baseline albumin")
+
+plot(1:nrow(comp_first), int_dfbetas[,2],
+     xlab="index", 
+     ylab="delta-beta",
+     main="Delta-beta values, CVD")
+
+
+# proportionality
+
+int_sres <- residuals(fit_int, type="scaledsch")
+colnames(int_sres) <- names(fit_int$coefficients)
+int_time <- as.numeric(rownames(int_sres))
+
+plot(int_time, int_sres[,1],
+     xlab="time", 
+     ylab="schoenfeld residuals",
+     main="Schoenfeld residuals, baseline albumin")
+lines(smooth.spline(int_time, int_sres[,1]), col="red", lwd=2)
+lines(int_time, fitted(lm(int_sres[,1]~int_time)), col="blue", lwd=2)
+
+plot(int_time, int_sres[,2],
+     xlab="time", 
+     ylab="schoenfeld residuals",
+     main="Schoenfeld residuals, CVD")
+lines(smooth.spline(int_time, int_sres[,2]), col="red", lwd=2)
+lines(int_time, fitted(lm(int_sres[,2]~int_time)), col="blue", lwd=2)
+
+```
+
+```{r, echo=FALSE, fig.height=8, fig.cap="Time-Dependent Model Diagnostics"}
+
+
+par(mfrow=c(2,2))
+
+
+# outliers
+
+td_dres <- residuals(fit_td, type="deviance")
+td_lp <- predict(fit_td, type="lp")
+plot(td_lp, td_dres, 
+     xlab = "linear predictor", 
+     ylab="deviance residuals", 
+     main="Deviance residuals")
+abline(h=c(-3, 3), col="red")
+
+
+# influential points
+
+td_dfbetas <- residuals(fit_td, type="dfbeta")
+plot(1:nrow(comp_data), td_dfbetas[,1],
+     xlab="index", 
+     ylab="delta-beta",
+     main="Delta-beta values, albumin")
+
+
+# proportionality
+
+td_sres <- residuals(fit_td, type="scaledsch")
+colnames(td_sres) <- names(fit_td$coefficients)
+td_time <- as.numeric(rownames(td_sres))
+plot(td_time, td_sres[,1],
+     xlab="time", 
+     ylab="schoenfeld residuals",
+     main="Schoenfeld residuals, albumin")
+lines(smooth.spline(td_time, td_sres[,1]), col="red", lwd=2)
+lines(td_time, fitted(lm(td_sres[,1]~td_time)), col="blue", lwd=2)
+
+
+
+```
+
+
+
+
