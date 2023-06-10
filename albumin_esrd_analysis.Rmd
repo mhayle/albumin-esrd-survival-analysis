@@ -91,8 +91,8 @@ For the purpose of this analysis, we will be excluding patients with missing val
 
 ```{r dataset, include=FALSE}
 
-first_data <- read.csv("usrdsData.csv")
-alb <- read.csv("LongitudinalAlbumin.csv")
+first_data <- read.csv("albumin_esrd_analysis_files/data/usrdsData.csv")
+alb <- read.csv("albumin_esrd_analysis_files/data/LongitudinalAlbumin.csv")
 
 data <- first_data %>% left_join(alb, by="usrds.id")
 
@@ -125,17 +125,15 @@ The data contains 332 events out of the 1,423 complete observations. Since we ha
 myVars <- names(first_data)[-c(1,3)]
 catVars <- c("female","racegrp","smokegrp","hist.cvd","diabetes","undnour")
 
-# CreateTableOne(data= (first_data %>% select(-trigly) %>% na.omit()),
-#                vars=myVars, factorVars = catVars, test = FALSE, strata="death")
 
-tab1 <- print(
-    CreateTableOne(data=comp_first, vars=myVars, factorVars = catVars, test = FALSE, strata="death"),
-    exact = "stage", quote = FALSE, noSpaces = TRUE, printToggle = FALSE
-    ) %>%
-    write.csv("table_one.csv")
+# tab1 <- print(
+#     CreateTableOne(data=comp_first, vars=myVars, factorVars = catVars, test = FALSE, strata="death"),
+#     exact = "stage", quote = FALSE, noSpaces = TRUE, printToggle = FALSE
+#     ) %>%
+#     write.csv("table_one.csv")
 
 
-tab1 <- read.csv("table_one.csv")
+tab1 <- read.csv("albumin_esrd_analysis_files/tables/table_one.csv")
 names(tab1) <- c("", "No Event", "Event")
 kable(tab1, caption="Summary Statistics Stratified by Death, Complete Observations")
 
@@ -384,16 +382,15 @@ kable(
 myVars <- names(first_data)[-c(1,3)]
 catVars <- c("female","racegrp","smokegrp","hist.cvd","diabetes","undnour")
 
-# CreateTableOne(data=first_data, vars=myVars, factorVars = catVars, test = FALSE, strata="death")
 
-tab_full <- print(
-    CreateTableOne(data=first_data, vars=myVars, factorVars = catVars, test = FALSE, strata="death"),
-    exact = "stage", quote = FALSE, noSpaces = TRUE, printToggle = FALSE
-    ) %>%
-    write.csv("table_full.csv")
+# tab_full <- print(
+#     CreateTableOne(data=first_data, vars=myVars, factorVars = catVars, test = FALSE, strata="death"),
+#     exact = "stage", quote = FALSE, noSpaces = TRUE, printToggle = FALSE
+#     ) %>%
+#     write.csv("table_full.csv")
 
 
-tab_full <- read.csv("table_one.csv")
+tab_full <- read.csv("albumin_esrd_analysis_files/tables/table_full.csv")
 names(tab_full) <- c("", "No Event", "Event")
 kable(tab_full, caption="Summary Statistics Stratified by Death, All Observations")
 
@@ -402,18 +399,15 @@ kable(tab_full, caption="Summary Statistics Stratified by Death, All Observation
 
 ```{r, echo=FALSE, warning=FALSE, fig.cap="Table X"}
 
-#CreateTableOne(data=first_data, vars=myVars[-6], factorVars = catVars[-4], test = FALSE, strata=c("hist.cvd","death"))
+# tab_cvd <- print(
+#     CreateTableOne(data=comp_first, vars=myVars[-6], factorVars = catVars[-4], test = FALSE,
+#                    strata=c("hist.cvd","death")),
+#     exact = "stage", quote = FALSE, noSpaces = TRUE, printToggle = FALSE
+#     ) %>%
+#     write.csv("table_cvd.csv")
 
 
-tab_cvd <- print(
-    CreateTableOne(data=comp_first, vars=myVars[-6], factorVars = catVars[-4], test = FALSE,
-                   strata=c("hist.cvd","death")),
-    exact = "stage", quote = FALSE, noSpaces = TRUE, printToggle = FALSE
-    ) %>%
-    write.csv("table_cvd.csv")
-
-
-tab_cvd <- read.csv("table_cvd.csv")
+tab_cvd <- read.csv("albumin_esrd_analysis_files/tables/table_cvd.csv")
 names(tab_cvd) <- c("", "No Event, No CVD", "No Event, CVD", "Event, No CVD", "Event, CVD")
 kable(tab_cvd, caption="Summary Statistics Stratified by Death and CVD")
 
